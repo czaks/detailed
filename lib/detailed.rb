@@ -3,9 +3,10 @@ require "active_record/relation/predicate_builder"
 module ActiveRecord
   class PredicateBuilder
     class << self
-      alias :__old_build_from_hash, :build_from_hash
+      alias :__old_build_from_hash :build_from_hash
       
       def build_from_hash (klass, attributes, default_table)
+	p [klass, attributes, default_table]
         if klass < Detailed
           detailclass = "#{klass.superclass}#{klass.name}Detail".constantize
           
