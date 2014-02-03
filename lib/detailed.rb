@@ -1,37 +1,5 @@
 require "active_record/relation/predicate_builder"
 
-module ActiveRecord
-  class PredicateBuilder
-    class << self
-      alias :__old_build_from_hash :build_from_hash
-      
-      def build_from_hash (klass, attributes, default_table)
-	p [klass, attributes, default_table]
-        if klass < Detailed
-          detailclass = "#{klass.superclass}#{klass.name}Detail".constantize
-          
-          my_columns = klass.columns.map(&:name)
-          det_columns = detailclass.columns.map(&:name)
-          
-          attrs = attributes.map do |h,v|
-            if my_columns.include? h.to_s
-              [h,v]
-            elsif det_columns.include? h.to_s
-              [detailclass.name + "." + h, v]
-            else
-              [h,v]
-            end
-          end.to_h
-          
-          __old_build_from_hash(klass, attrs, default_table)
-        else
-          __old_build_from_hash(klass, attributes, default_table)
-        end
-      end
-    end
-  end
-end
-
 module Detailed
   def self.included (mod)
     class << mod
@@ -58,7 +26,7 @@ module Detailed
 	  #has_one :details, class_name: "#{self.superclass.name}#{self.name}Detail", dependent: :destroy
 	  accepts_nested_attributes_for :"details_of_#{self.name.tableize}"
 	  #default_scope :include => :details
-          default_scope -> { includes(:"details_of_#{self.name.tableize}") }
+          default_scope -> { includes(:"details_of_#{self.name.tableize}").references(:"details_of_#{self.name.tableize}") }
           
           alias :details  :"details_of_#{self.name.tableize}"
           alias :details= :"details_of_#{self.name.tableize}="
