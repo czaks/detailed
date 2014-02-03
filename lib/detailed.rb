@@ -26,7 +26,7 @@ module Detailed
 	  #has_one :details, class_name: "#{self.superclass.name}#{self.name}Detail", dependent: :destroy
 	  accepts_nested_attributes_for :"details_of_#{self.name.tableize}"
 	  #default_scope :include => :details
-          default_scope -> { includes(:"details_of_#{self.name.tableize}").references(:"details_of_#{self.name.tableize}") }
+          default_scope -> { includes(:"details_of_#{self.name.tableize}").joins(:"details_of_#{self.name.tableize}") }
           
           alias :details  :"details_of_#{self.name.tableize}"
           alias :details= :"details_of_#{self.name.tableize}="
@@ -83,18 +83,103 @@ module Detailed
   end
   
   module AssociationScope
-    # Extend column_for support for "table.column" notation
-    #
-    # This gives us power to do eg.:
-    #  has_many :frames, foreign_key: "project_frame_details.glass_id"    
-    def column_for(table_name, column_name)
-      if column_name.match /\./
-        table_name, column_name = column_name.split(/\./)
+    def self.included cl
+      cl.class_eval do
+        def maybe_split(table, field, reflection, scope)
+          if field.match /\./
+            table, field = field.split(/\./, 2)
+            table = alias_tracker.aliased_table_for(table, table_alias_for(reflection, self.reflection != reflection))
+            
+            #scope = scope.merge()
+          end
+                    
+          [table, field, scope]
+        end
+        
+        # Extend add_constraints support for "table.column" notation
+        #
+        # This gives us power to do eg.:
+        #  has_many :frames, foreign_key: "project_frame_details.glass_id"        
+        def add_constraints(scope)
+          tables = construct_tables
+          
+          chain.each_with_index do |reflection, i|
+            table, foreign_table = tables.shift, tables.first
+            
+            if reflection.source_macro == :has_and_belongs_to_many
+              join_table = tables.shift
+                           
+              scope = scope.joins(join(
+                                       join_table,
+                                       table[association_primary_key].
+                                      eq(join_table[association_foreign_key])
+                                      ))
+              
+              table, foreign_table = join_table, tables.first
+            end
+          
+            if reflection.source_macro == :belongs_to
+              if reflection.options[:polymorphic]
+                key = reflection.association_primary_key(self.klass)
+              else
+                key = reflection.association_primary_key
+              end
+              
+              foreign_key = reflection.foreign_key
+            else
+              key         = reflection.foreign_key
+              foreign_key = reflection.active_record_primary_key
+            end
+            
+            # this is our addition
+            table, key, scope = maybe_split(table, key, reflection, scope)
+            foreign_table, foreign_key, scope = maybe_split(foreign_table, foreign_key, reflection, scope)
+            # end
+            
+            if reflection == chain.last              
+              bind_val = bind scope, table.table_name, key.to_s, owner[foreign_key]
+              scope    = scope.where(table[key].eq(bind_val))
+              
+              if reflection.type
+                value    = owner.class.base_class.name
+                bind_val = bind scope, table.table_name, reflection.type.to_s, value
+                scope    = scope.where(table[reflection.type].eq(bind_val))
+              end
+            else
+              constraint = table[key].eq(foreign_table[foreign_key])
+              
+              if reflection.type
+                type = chain[i + 1].klass.base_class.name
+                constraint = constraint.and(table[reflection.type].eq(type))
+              end
+              
+              scope = scope.joins(join(foreign_table, constraint))
+            end
+            
+            # Exclude the scope of the association itself, because that
+            # was already merged in the #scope method.
+            scope_chain[i].each do |scope_chain_item|
+              klass = i == 0 ? self.klass : reflection.klass
+              item  = eval_scope(klass, scope_chain_item)
+              
+              if scope_chain_item == self.reflection.scope
+                scope.merge! item.except(:where, :includes)
+              end
+              
+              scope.includes! item.includes_values
+              scope.where_values += item.where_values
+              scope.order_values |= item.order_values
+            end
+          end
+          
+          scope
+        end
       end
-      
-      super table_name, column_name
     end
   end
 end
 
-ActiveRecord::Associations::AssociationScope.send :include, Detailed::AssociationScope
+
+class ActiveRecord::Associations::AssociationScope
+  include Detailed::AssociationScope
+end
