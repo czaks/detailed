@@ -1,4 +1,4 @@
-require "active_record/relation/predicate_builder"
+require "active_record/associations/association_scope.rb"
 
 module Detailed
   def self.included (mod)
@@ -81,4 +81,20 @@ module Detailed
       end
     end
   end
+  
+  module AssociationScope
+    # Extend column_for support for "table.column" notation
+    #
+    # This gives us power to do eg.:
+    #  has_many :frames, foreign_key: "project_frame_details.glass_id"    
+    def column_for(table_name, column_name)
+      if column_name.match /\./
+        table_name, column_name = column_name.split(/\./)
+      end
+      
+      super table_name, column_name
+    end
+  end
 end
+
+ActiveRecord::Associations::AssociationScope.send :include, Detailed::AssociationScope
