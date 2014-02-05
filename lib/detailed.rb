@@ -16,23 +16,23 @@ module Detailed
       
       def all_with_details
         @subclasses ||= []
-        @subclasses.inject(self.all) { |a,b| a.includes(:"details_of_#{b.name.tableize}") }
+        @subclasses.inject(self.unscoped) { |a,b| a.includes(:"details_of_#{b.name.tableize}") }
       end
       
       def request_details
         self.superclass.add_subclass(self)
         
 	class_eval do
-	  #has_one :details, class_name: "#{self.superclass.name}#{self.name}Detail", dependent: :destroy
 	  accepts_nested_attributes_for :"details_of_#{self.name.tableize}"
-	  #default_scope :include => :details
-          default_scope -> { includes(:"details_of_#{self.name.tableize}").joins(:"details_of_#{self.name.tableize}") }
+          default_scope do
+            eager_load :"details_of_#{self.name.tableize}"
+          end
           
           alias :details  :"details_of_#{self.name.tableize}"
           alias :details= :"details_of_#{self.name.tableize}="
 	  
 	  after_initialize do
-	    self.details ||= Object.const_get("#{self.class.superclass.name}#{self.class.name}Detail").new
+	    self.details ||= "#{self.class.superclass.name}#{self.class.name}Detail".constantize.new if self.new_record?
 	  end
 	  
 	  alias :__old_method_missing :method_missing
@@ -59,14 +59,14 @@ module Detailed
               raise e
             end
           end
-          
+
 	  def method_missing a, *b
             __old_method_missing a, *b
           rescue NoMethodError, NameError => e
 	    begin
               details.send a, *b
             rescue NoMethodError, NameError
-		raise e
+              raise e
             end
 	  end
 	  
@@ -85,15 +85,13 @@ module Detailed
   module AssociationScope
     def self.included cl
       cl.class_eval do
-        def maybe_split(table, field, reflection, scope)
+        def maybe_split(table, field, reflection)
           if field.match /\./
             table, field = field.split(/\./, 2)
             table = alias_tracker.aliased_table_for(table, table_alias_for(reflection, self.reflection != reflection))
-            
-            #scope = scope.merge()
           end
                     
-          [table, field, scope]
+          [table, field]
         end
         
         # Extend add_constraints support for "table.column" notation
@@ -132,8 +130,8 @@ module Detailed
             end
             
             # this is our addition
-            table, key, scope = maybe_split(table, key, reflection, scope)
-            foreign_table, foreign_key, scope = maybe_split(foreign_table, foreign_key, reflection, scope)
+            table, key = maybe_split(table, key, reflection)
+            foreign_table, foreign_key = maybe_split(foreign_table, foreign_key, reflection)
             # end
             
             if reflection == chain.last              
