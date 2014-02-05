@@ -5,12 +5,14 @@ Compromise between single and multiple table inheritance with ActiveRecord. This
 depend on Rails at all (that's, in fact, how it originated).
 
 With this gem you can have a table hierarchy like this:
+
     user (id, type (class), login, password)
     |- user_client_details (client_id, billing_address, phone_number)
     |- user_worker_details (worker_id, wage, bank_account)
     `- user_supplier_details (supplier_id, company_name)
 
 And models hierarchy like this:
+
     ActiveRecord::Base
     |- User
     |  |- Client
@@ -21,11 +23,13 @@ And models hierarchy like this:
     `- UserSupplierDetail
 
 All detail classes would look like this (nothing more is needed):
+
     UserWorkerDetail < ActiveRecord::Base
       belongs_to :worker
     end
 
 The main class should be in this form:
+
     class User < ActiveRecord::Base
       # ... your code here ...
 
@@ -33,6 +37,7 @@ The main class should be in this form:
     end
 
 The subclasses should be in this form:
+
     class Client < User
       request_details
 
@@ -40,6 +45,7 @@ The subclasses should be in this form:
     end
     
 To add this package to your environment, add the following line to your Gemfile:
+
     gem "detailed"
 
 This gem started from this post on StackExchange: http://stackoverflow.com/a/1634734/3256901 .
@@ -48,6 +54,7 @@ This gem started from this post on StackExchange: http://stackoverflow.com/a/163
 Access to detailed properties
 -----------------------------
 With the tableset above, we can access our variables directly, like
+
     client = new Client
     client.login = "teh1234"              # a field of user
     client.billing_address = "Zgoda 18/2" # a field of user_client_details
@@ -55,6 +62,7 @@ With the tableset above, we can access our variables directly, like
 
 Be aware, that you can't issue find/where with extended fields at the current
 time. You need to resort to the regular:
+
     Client.find("details_of_client.billing_address" => "Zgoda 18/2")
 
 
@@ -111,8 +119,8 @@ Subclasses without details
 Sometimes you are going to subclass the main model without the need for additional
 fields. This is easy, you just do
 
-class BasicUser < User
-end
+    class BasicUser < User
+    end
 
 No further code needed, detailed won't go into your way.
 
