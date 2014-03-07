@@ -1,3 +1,4 @@
+# detailed.rb
 # Copyright (c) 2014 Marcin Łabanowski 
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -30,7 +31,7 @@ module Detailed
         @subclasses << sc
         
         class_eval do
-          has_one :"details_of_#{sc.name.tableize}", class_name: "#{self.name}#{sc.name}Detail", foreign_key: "#{sc.name.tableize.singularize}_id" #, inverse_of: "#{sc.name.tableize}"
+          has_one :"details_of_#{sc.name.tableize}", class_name: "#{self.name}#{sc.name}Detail", foreign_key: "#{sc.name.tableize.singularize}_id", autosave: true #, inverse_of: "#{sc.name.tableize}"
         end
       end
       
