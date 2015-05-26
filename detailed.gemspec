@@ -1,7 +1,7 @@
 Gem::Specification.new do |s|
   s.name        = 'detailed'
-  s.version     = '0.1.1'
-  s.date        = '2014-07-03'
+  s.version     = '0.2.0'
+  s.date        = '2015-05-26'
   s.summary     = "Compromise between single and multiple table inheritance"
   s.description = "An ActiveRecord module giving you the power of multiple table inheritance while still resorting to an API resembling single table inheritance"
   s.authors     = ["Marcin Łabanowski"]
